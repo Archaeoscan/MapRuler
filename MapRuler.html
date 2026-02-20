@@ -1,0 +1,1305 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>MapRuler — Calibrate & Measure</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+
+    /* ── Farbpalette ──────────────────────────────────────────
+       Navy   #1e2d4a   (Header-Hintergrund)
+       Teal   #0d9488   (Akzent / Primär)
+       Amber  #d97706   (Warnung / needs-confirm)
+       Slate  #f1f5f9   (Seiten-Hintergrund)
+    ──────────────────────────────────────────────────────── */
+
+    body {
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      margin: 0;
+      padding: 0 0 48px;
+      background: #f1f5f9;
+      color: #1e293b;
+      min-height: 100vh;
+    }
+
+    /* ── Header / Titelleiste ── */
+    .header {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      flex-wrap: wrap;
+      background: #1e2d4a;
+      padding: 14px 24px;
+      margin-bottom: 16px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.18);
+    }
+    .header-left {
+      display: flex;
+      align-items: baseline;
+      gap: 10px;
+    }
+    h2 {
+      margin: 0;
+      font-size: 1.5rem;
+      font-weight: 700;
+      letter-spacing: -0.3px;
+      color: #fff;
+    }
+    .header-sub {
+      font-size: 0.85rem;
+      color: #94a3b8;
+      font-weight: 400;
+    }
+    .header-divider {
+      width: 1px;
+      height: 28px;
+      background: rgba(255,255,255,0.15);
+      flex-shrink: 0;
+    }
+    .upload-label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 16px;
+      background: #0d9488;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 0.88rem;
+      font-weight: 600;
+      color: #fff;
+      transition: background 0.15s;
+    }
+    .upload-label:hover { background: #0f766e; }
+    .upload-label input { display: none; }
+    .paste-hint {
+      font-size: 0.85rem;
+      color: #94a3b8;
+    }
+    .paste-hint b { color: #cbd5e1; }
+
+    /* ── Toolbar-Panel ── */
+    .panel {
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+      align-items: center;
+      padding: 12px 24px;
+      background: #fff;
+      border-bottom: 1px solid #e2e8f0;
+      margin-bottom: 16px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+    }
+
+    .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+
+    /* Tool-Gruppe */
+    .tool-group {
+      display: flex;
+      gap: 4px;
+      background: #f1f5f9;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      padding: 3px;
+    }
+    .tool-group label {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 11px;
+      border-radius: 7px;
+      cursor: pointer;
+      font-size: 0.88rem;
+      font-weight: 500;
+      color: #64748b;
+      transition: all 0.15s;
+      user-select: none;
+    }
+    .tool-group label:has(input:checked) {
+      background: #1e2d4a;
+      color: #fff;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+    }
+    .tool-group label:not(:has(input:checked)):hover { background: #e2e8f0; color: #1e293b; }
+    .tool-group input[type="radio"] { display: none; }
+
+    /* Kalibrierungs-Badge */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 4px 12px;
+      border-radius: 999px;
+      background: #fef3c7;
+      border: 1px solid #fcd34d;
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: #92400e;
+    }
+    .badge.calibrated {
+      background: #d1fae5;
+      border-color: #34d399;
+      color: #065f46;
+    }
+
+    /* Inputs */
+    input[type="number"] {
+      width: 80px;
+      padding: 5px 8px;
+      border: 1.5px solid #cbd5e1;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      background: #f8fafc;
+      color: #1e293b;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    input[type="number"]:focus { outline: none; border-color: #0d9488; box-shadow: 0 0 0 3px rgba(13,148,136,0.15); background: #fff; }
+    input[type="number"].needs-confirm { border-color: #d97706; background: #fffbeb; box-shadow: 0 0 0 3px rgba(217,119,6,0.15); }
+
+    select {
+      padding: 5px 8px;
+      border: 1.5px solid #cbd5e1;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      background: #f8fafc;
+      color: #1e293b;
+      cursor: pointer;
+      transition: border-color 0.15s;
+    }
+    select:focus { outline: none; border-color: #0d9488; box-shadow: 0 0 0 3px rgba(13,148,136,0.15); }
+
+    /* Buttons */
+    button {
+      padding: 5px 10px;
+      border-radius: 8px;
+      border: 1.5px solid #cbd5e1;
+      background: #f8fafc;
+      color: #334155;
+      font-size: 0.83rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s;
+      white-space: nowrap;
+    }
+    button:hover:not(:disabled) { border-color: #94a3b8; background: #e2e8f0; color: #0f172a; }
+    button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    button.btn-primary {
+      background: #0d9488;
+      border-color: #0f766e;
+      color: #fff;
+      font-weight: 600;
+    }
+    button.btn-primary:hover:not(:disabled) { background: #0f766e; border-color: #115e59; }
+
+    button.btn-danger {
+      color: #b91c1c;
+      border-color: #fca5a5;
+      background: #fff;
+    }
+    button.btn-danger:hover:not(:disabled) { background: #fef2f2; border-color: #b91c1c; }
+
+    /* Trennlinie */
+    .sep { width: 1px; height: 22px; background: #e2e8f0; flex-shrink: 0; }
+
+    /* ── Canvas + Seitenleiste ── */
+    .canvas-area {
+      display: flex;
+      gap: 14px;
+      align-items: flex-start;
+      padding: 0 24px;
+    }
+    canvas {
+      display: block;
+      max-width: 100%;
+      height: auto;
+      border-radius: 12px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.14);
+      outline: none;
+      flex-shrink: 0;
+    }
+    canvas:focus { box-shadow: 0 0 0 3px rgba(13,148,136,0.4), 0 4px 20px rgba(0,0,0,0.14); }
+
+    /* Hint-Box Seitenleiste */
+    .hint-box {
+      background: #fff;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 16px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+      font-size: 0.84rem;
+      color: #475569;
+      line-height: 1.75;
+      flex: 1;
+      min-width: 190px;
+    }
+    .pills { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 10px;
+      border-radius: 999px;
+      border: 1px solid #e2e8f0;
+      background: #f1f5f9;
+      font-size: 0.8rem;
+      color: #475569;
+    }
+    .pill b { color: #0d9488; }
+    .hint-box .desc b { color: #1e2d4a; }
+
+    /* ── Measurements-Tabelle ── */
+    .list {
+      margin: 14px 24px 0;
+      background: #fff;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 16px 20px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+    }
+    .list h3 {
+      margin: 0 0 10px;
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: #1e2d4a;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .hint { color: #94a3b8; font-size: 0.88rem; margin: 0; }
+    .list table { border-collapse: collapse; width: 100%; }
+    .list th {
+      text-align: left;
+      padding: 6px 10px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: #94a3b8;
+      border-bottom: 2px solid #f1f5f9;
+    }
+    .list td {
+      padding: 9px 10px;
+      border-bottom: 1px solid #f1f5f9;
+      font-size: 0.88rem;
+      vertical-align: top;
+    }
+    .list tr:last-child td { border-bottom: none; }
+    .list tr:hover td { background: #f8fafc; }
+    .k { color: #cbd5e1; font-size: 0.82rem; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+
+    /* ── Footer ── */
+    .footer {
+      margin: 24px 24px 0;
+      padding-top: 14px;
+      border-top: 1px solid #e2e8f0;
+      font-size: 0.8rem;
+      color: #94a3b8;
+    }
+    .footer a { color: #64748b; text-decoration: none; }
+    .footer a:hover { color: #0d9488; text-decoration: underline; }
+  </style>
+</head>
+
+<body>
+  <div class="header">
+    <div class="header-left">
+      <h2>MapRuler</h2>
+      <span class="header-sub">Calibrate &amp; Measure</span>
+    </div>
+    <div class="header-divider"></div>
+    <label class="upload-label">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+      Load image
+      <input id="fileInput" type="file" accept="image/*">
+    </label>
+    <span class="paste-hint">Or copy an image and press <b>Ctrl+V</b> / <b>Cmd+V</b></span>
+  </div>
+
+  <div class="panel">
+    <span style="font-size:0.75rem;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.06em;">Tool</span>
+    <div class="tool-group">
+      <label><input type="radio" name="tool" value="calibrate" checked><span>Calibrate</span></label>
+      <label><input type="radio" name="tool" value="distance"><span>Distance</span></label>
+      <label><input type="radio" name="tool" value="area"><span>Area</span></label>
+    </div>
+    <span class="badge" id="scaleBadge">Not calibrated yet</span>
+
+    <div class="sep"></div>
+
+    <label style="font-size:0.88rem;color:#64748b;display:flex;align-items:center;gap:6px;">Real length
+      <input id="realLen" type="number" min="0" step="0.01" value="20">
+    </label>
+    <select id="unit">
+      <option value="m" selected>m</option>
+      <option value="cm">cm</option>
+      <option value="mm">mm</option>
+    </select>
+
+    <div class="sep"></div>
+
+    <button id="undoBtn" disabled>↩ Undo</button>
+    <button id="cancelBtn" disabled>✕ Cancel</button>
+
+    <div class="sep"></div>
+
+    <button id="clearAnnoBtn" class="btn-danger">Clear</button>
+    <button id="recalBtn" title="Start a new calibration">Recalibrate</button>
+    <button id="clearCalBtn" class="btn-danger" title="Remove calibration factor">Clear cal.</button>
+
+    <div class="sep"></div>
+
+    <button id="exportBtn" class="btn-primary" disabled>↓ Export</button>
+  </div>
+
+  <div class="canvas-area">
+    <canvas id="canvas" width="1000" height="650" tabindex="0"></canvas>
+    <div class="hint-box">
+      <div class="pills">
+        <span class="pill"><b>Zoom</b>: mouse wheel</span>
+        <span class="pill"><b>Pan</b>: Space + drag / middle mouse</span>
+        <span class="pill"><b>Shift</b>: snap horizontal / vertical</span>
+      </div>
+      <div class="desc">
+        <b>Calibrate:</b> click 2 points on the scale bar → enter real length.<br><br>
+        <b>Distance:</b> click points (polyline) → <b>Right-click</b> or <b>Enter</b> to finish.<br><br>
+        <b>Area:</b> click points (polygon) → <b>Right-click</b>, <b>Enter</b> or <b>Double-click</b> to finish.<br><br>
+        Points are labeled <b>A, B, C…</b><br>
+        Measurements get an id <b>#1, #2…</b>
+      </div>
+    </div>
+  </div>
+
+  <div class="list">
+    <h3>Measurements</h3>
+    <div id="emptyMsg" class="hint">No measurements yet.</div>
+    <table id="table" style="display:none;">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Type</th>
+          <th>Result</th>
+          <th>Pixels</th>
+          <th class="k">Points</th>
+        </tr>
+      </thead>
+      <tbody id="tbody"></tbody>
+    </table>
+  </div>
+
+<script>
+(() => {
+  // ====== DOM ======
+  const canvas = document.getElementById('canvas');
+  const ctx = canvas.getContext('2d');
+
+  const fileInput = document.getElementById('fileInput');
+  const realLenInput = document.getElementById('realLen');
+  const unitSelect = document.getElementById('unit');
+  const scaleBadge = document.getElementById('scaleBadge');
+
+  const undoBtn = document.getElementById('undoBtn');
+  const cancelBtn = document.getElementById('cancelBtn');
+  const clearAnnoBtn = document.getElementById('clearAnnoBtn');
+  const recalBtn = document.getElementById('recalBtn');
+  const clearCalBtn = document.getElementById('clearCalBtn');
+  const exportBtn = document.getElementById('exportBtn');
+
+  const table = document.getElementById('table');
+  const tbody = document.getElementById('tbody');
+  const emptyMsg = document.getElementById('emptyMsg');
+
+  // ====== State ======
+  let tool = 'calibrate'; // calibrate | distance | area
+
+  let img = null;
+  let imgW = 0, imgH = 0;
+
+  // view transform: canvas = (img * scale + offset)
+  let view = {
+    scale: 1,
+    offsetX: 0,
+    offsetY: 0,
+    minScale: 0.05,
+    maxScale: 50
+  };
+
+  // calibration factor: unit per pixel in IMAGE coordinate system
+  let unitsPerPixel = null; // e.g. m/px (in current unit)
+  let unit = unitSelect.value;
+
+  // calibration points (optional, for showing during calibration)
+  let calPts = [];          // [pA,pB] in image coords
+  let calPreview = null;    // preview point while calibrating
+
+  // distance polyline in progress
+  let linePts = [];         // array of image coords
+  let linePreview = null;   // preview point
+
+  // area polygon in progress
+  let polyPts = [];         // array of image coords
+  let polyPreview = null;   // preview point
+
+  // measurements stored
+  // distance polyline: { id, type:'distance', pts:[...], px, value, unit, label }
+  // area polygon:      { id, type:'area', pts:[...], px2, value, unit, label }
+  let measurements = [];
+  let nextId = 1;
+
+  // panning
+  let isPanning = false;
+  let panStart = null;
+  let spaceDown = false;
+
+  // ====== Helpers ======
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  const dist = (a,b) => Math.hypot(a.x-b.x, a.y-b.y);
+
+  function alphabetLabel(i) {
+    // 0->A ... 25->Z, then AA, AB, ...
+    const A = 'A'.charCodeAt(0);
+    let n = i;
+    let s = '';
+    while (true) {
+      s = String.fromCharCode(A + (n % 26)) + s;
+      n = Math.floor(n / 26) - 1;
+      if (n < 0) break;
+    }
+    return s;
+  }
+
+  function updateCursor() {
+    if (isPanning) { canvas.style.cursor = 'grabbing'; return; }
+    if (spaceDown) { canvas.style.cursor = 'grab'; return; }
+    if (tool === 'calibrate' || tool === 'distance' || tool === 'area') {
+      canvas.style.cursor = 'crosshair'; return;
+    }
+    canvas.style.cursor = 'default';
+  }
+
+  function setTool(newTool) {
+    tool = newTool;
+    calPreview = null;
+    linePreview = null;
+    polyPreview = null;
+    // keep in-progress points only for that tool
+    if (tool !== 'calibrate') { calPts = calPts.length === 2 ? calPts : []; }
+    if (tool !== 'distance')  { linePts = []; linePreview = null; }
+    if (tool !== 'area')      { polyPts = []; polyPreview = null; }
+    updateButtons();
+    updateCursor();
+    redraw();
+  }
+
+  function setBadge() {
+    if (unitsPerPixel == null) {
+      scaleBadge.textContent = 'Not calibrated yet';
+      scaleBadge.classList.remove('calibrated');
+    } else {
+      scaleBadge.textContent = `✓ ${unitsPerPixel.toPrecision(6)} ${unit}/px`;
+      scaleBadge.classList.add('calibrated');
+    }
+  }
+
+  function updateButtons() {
+    const hasInProgress =
+      (tool === 'calibrate' && (calPts.length > 0)) ||
+      (tool === 'distance'  && (linePts.length > 0)) ||
+      (tool === 'area'      && (polyPts.length > 0));
+
+    const undoEnabled =
+      (tool === 'calibrate' && calPts.length > 0) ||
+      (tool === 'distance'  && linePts.length > 0) ||
+      (tool === 'area'      && polyPts.length > 0);
+
+    undoBtn.disabled = !undoEnabled;
+    cancelBtn.disabled = !hasInProgress;
+
+    exportBtn.disabled = measurements.length === 0;
+
+    // Highlight real-length input while calibrating (1 point set), so user notices to verify the value
+    if (tool === 'calibrate' && calPts.length >= 1 && calPts.length < 2) {
+      realLenInput.classList.add('needs-confirm');
+    } else {
+      realLenInput.classList.remove('needs-confirm');
+    }
+  }
+
+  function fitImageToCanvas() {
+    if (!img) return;
+    const sx = canvas.width / imgW;
+    const sy = canvas.height / imgH;
+    view.scale = Math.min(sx, sy);
+    view.offsetX = (canvas.width - imgW * view.scale) / 2;
+    view.offsetY = (canvas.height - imgH * view.scale) / 2;
+  }
+
+  function getCanvasMousePos(evt) {
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    return {
+      x: (evt.clientX - rect.left) * scaleX,
+      y: (evt.clientY - rect.top) * scaleY
+    };
+  }
+
+  function toImageCoords(canvasX, canvasY) {
+    return {
+      x: (canvasX - view.offsetX) / view.scale,
+      y: (canvasY - view.offsetY) / view.scale
+    };
+  }
+
+  function toCanvasCoords(imgX, imgY) {
+    return {
+      x: imgX * view.scale + view.offsetX,
+      y: imgY * view.scale + view.offsetY
+    };
+  }
+
+  function clampPointToImage(p) {
+    return { x: clamp(p.x, 0, imgW), y: clamp(p.y, 0, imgH) };
+  }
+
+  function snapOrthogonal(last, p) {
+    if (!last) return p;
+    const dx = Math.abs(p.x - last.x);
+    const dy = Math.abs(p.y - last.y);
+    if (dx > dy) return { x: p.x, y: last.y };
+    return { x: last.x, y: p.y };
+  }
+
+  function formatDistance(val) {
+    const abs = Math.abs(val);
+    let digits = 3;
+    if (abs >= 1000) digits = 5;
+    else if (abs >= 100) digits = 4;
+    else digits = 3;
+    return `${Number(val.toPrecision(digits))} ${unit}`;
+  }
+
+  function unitSquaredLabel() { return `${unit}²`; }
+
+  function formatArea(val) {
+    const abs = Math.abs(val);
+    let digits = 3;
+    if (abs >= 1_000_000) digits = 6;
+    else if (abs >= 10_000) digits = 5;
+    else if (abs >= 100) digits = 4;
+    else digits = 3;
+    return `${Number(val.toPrecision(digits))} ${unitSquaredLabel()}`;
+  }
+
+  function polylineLengthPx(pts) {
+    let s = 0;
+    for (let i = 1; i < pts.length; i++) s += dist(pts[i-1], pts[i]);
+    return s;
+  }
+
+  function polygonAreaAbsPx2(pts) {
+    let s = 0;
+    for (let i = 0; i < pts.length; i++) {
+      const a = pts[i];
+      const b = pts[(i+1) % pts.length];
+      s += (a.x * b.y - b.x * a.y);
+    }
+    return Math.abs(s / 2);
+  }
+
+  function unitToMetersFactor(u) {
+    if (u === 'm') return 1;
+    if (u === 'cm') return 0.01;
+    if (u === 'mm') return 0.001;
+    return 1;
+  }
+  function metersToUnitFactor(u) {
+    if (u === 'm') return 1;
+    if (u === 'cm') return 100;
+    if (u === 'mm') return 1000;
+    return 1;
+  }
+  function convertScalarBetweenUnits(value, fromU, toU) {
+    const meters = value * unitToMetersFactor(fromU);
+    return meters * metersToUnitFactor(toU);
+  }
+  function convertAreaBetweenUnits(value, fromU, toU) {
+    const meters2 = value * Math.pow(unitToMetersFactor(fromU), 2);
+    return meters2 * Math.pow(metersToUnitFactor(toU), 2);
+  }
+
+  // ====== Drawing ======
+  function drawPoint(pImg, text, colorFill='#ff2d2d') {
+    const p = toCanvasCoords(pImg.x, pImg.y);
+    ctx.save();
+    ctx.beginPath();
+    ctx.fillStyle = colorFill;
+    ctx.strokeStyle = '#000';
+    ctx.lineWidth = 2;
+    ctx.arc(p.x, p.y, 5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    if (text) {
+      ctx.fillStyle = '#000';
+      ctx.font = '12px system-ui, sans-serif';
+      ctx.fillText(text, p.x + 8, p.y - 8);
+    }
+    ctx.restore();
+  }
+
+  function drawLabelBox(x, y, label) {
+    ctx.save();
+    ctx.font = '13px system-ui, sans-serif';
+    const pad = 4;
+    const w = ctx.measureText(label).width;
+    ctx.fillStyle = 'rgba(255,255,255,0.85)';
+    ctx.fillRect(x - w/2 - pad, y - 16, w + pad*2, 20);
+    ctx.strokeStyle = 'rgba(0,0,0,0.2)';
+    ctx.strokeRect(x - w/2 - pad, y - 16, w + pad*2, 20);
+    ctx.fillStyle = '#000';
+    ctx.fillText(label, x - w/2, y - 2);
+    ctx.restore();
+  }
+
+  function drawPolyline(pts, dashed=false) {
+    if (pts.length < 2) return;
+    ctx.save();
+    ctx.strokeStyle = dashed ? '#1a73e8' : '#00a000';
+    ctx.lineWidth = 2;
+    ctx.setLineDash(dashed ? [6,4] : []);
+    const p0 = toCanvasCoords(pts[0].x, pts[0].y);
+    ctx.beginPath();
+    ctx.moveTo(p0.x, p0.y);
+    for (let i = 1; i < pts.length; i++) {
+      const p = toCanvasCoords(pts[i].x, pts[i].y);
+      ctx.lineTo(p.x, p.y);
+    }
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawPolygon(pts, previewPoint=null) {
+    if (pts.length === 0) return;
+
+    ctx.save();
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = '#00a000';
+    ctx.fillStyle = 'rgba(0,160,0,0.12)';
+
+    const p0 = toCanvasCoords(pts[0].x, pts[0].y);
+    ctx.beginPath();
+    ctx.moveTo(p0.x, p0.y);
+
+    for (let i = 1; i < pts.length; i++) {
+      const p = toCanvasCoords(pts[i].x, pts[i].y);
+      ctx.lineTo(p.x, p.y);
+    }
+
+    if (previewPoint) {
+      const pp = toCanvasCoords(previewPoint.x, previewPoint.y);
+      ctx.lineTo(pp.x, pp.y);
+    } else if (pts.length >= 3) {
+      ctx.closePath();
+    }
+
+    if (!previewPoint && pts.length >= 3) ctx.fill();
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function redraw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    if (!img) {
+      ctx.fillStyle = '#333';
+      ctx.font = '16px system-ui, sans-serif';
+      ctx.fillText('No image loaded. Use upload or paste (Ctrl+V / Cmd+V).', 16, 28);
+      return;
+    }
+
+    // image
+    ctx.drawImage(img, view.offsetX, view.offsetY, imgW * view.scale, imgH * view.scale);
+
+    // stored measurements (with point labels A,B,C...)
+    for (const m of measurements) {
+      if (m.type === 'distance') {
+        drawPolyline(m.pts, false);
+
+        // label measurement id near polyline midpoint (middle vertex or segment midpoint)
+        let anchor = m.pts[Math.floor(m.pts.length / 2)];
+        const ac = toCanvasCoords(anchor.x, anchor.y);
+        drawLabelBox(ac.x, ac.y, `#${m.id}  ${m.label}`);
+
+        // point letters
+        for (let i = 0; i < m.pts.length; i++) {
+          drawPoint(m.pts[i], alphabetLabel(i));
+        }
+      } else if (m.type === 'area') {
+        drawPolygon(m.pts, null);
+
+        // label at centroid-ish average
+        const cx = m.pts.reduce((s,p) => s + p.x, 0) / m.pts.length;
+        const cy = m.pts.reduce((s,p) => s + p.y, 0) / m.pts.length;
+        const cc = toCanvasCoords(cx, cy);
+        drawLabelBox(cc.x, cc.y, `#${m.id}  ${m.label}`);
+
+        // point letters
+        for (let i = 0; i < m.pts.length; i++) {
+          drawPoint(m.pts[i], alphabetLabel(i));
+        }
+      }
+    }
+
+    // in-progress overlays
+    if (tool === 'calibrate') {
+      if (calPts.length > 0) drawPoint(calPts[0], 'A', '#ff2d2d');
+      if (calPts.length > 1) {
+        drawPoint(calPts[1], 'B', '#ff2d2d');
+        drawPolyline(calPts, true);
+        const mid = { x: (calPts[0].x + calPts[1].x)/2, y: (calPts[0].y + calPts[1].y)/2 };
+        const mc = toCanvasCoords(mid.x, mid.y);
+        drawLabelBox(mc.x, mc.y, 'Calibration');
+      } else if (calPts.length === 1 && calPreview) {
+        drawPolyline([calPts[0], calPreview], true);
+      }
+    }
+
+    if (tool === 'distance') {
+      if (linePts.length > 0) {
+        // preview polyline (dashed)
+        const pts = linePreview ? [...linePts, linePreview] : [...linePts];
+        drawPolyline(pts, true);
+
+        // show point letters for in-progress
+        for (let i = 0; i < linePts.length; i++) drawPoint(linePts[i], alphabetLabel(i));
+        if (linePreview) drawPoint(linePreview, alphabetLabel(linePts.length), '#ffd1d1');
+
+        // show live length
+        if (unitsPerPixel != null && linePts.length >= 2) {
+          const px = polylineLengthPx(linePts);
+          const val = px * unitsPerPixel;
+          const last = linePts[linePts.length - 1];
+          const lc = toCanvasCoords(last.x, last.y);
+          drawLabelBox(lc.x + 60, lc.y - 20, `L ≈ ${formatDistance(val)} (right-click to finish)`);
+        } else if (linePts.length >= 2 && unitsPerPixel == null) {
+          const last = linePts[linePts.length - 1];
+          const lc = toCanvasCoords(last.x, last.y);
+          drawLabelBox(lc.x + 70, lc.y - 20, 'Please calibrate first');
+        }
+      }
+    }
+
+    if (tool === 'area') {
+      if (polyPts.length > 0) {
+        drawPolygon(polyPts, polyPreview);
+
+        // letters
+        for (let i = 0; i < polyPts.length; i++) drawPoint(polyPts[i], alphabetLabel(i));
+        if (polyPreview) drawPoint(polyPreview, alphabetLabel(polyPts.length), '#ffd1d1');
+
+        if (unitsPerPixel != null && polyPts.length >= 3) {
+          const px2 = polygonAreaAbsPx2(polyPts);
+          const val = px2 * Math.pow(unitsPerPixel, 2);
+          const last = polyPts[polyPts.length - 1];
+          const lc = toCanvasCoords(last.x, last.y);
+          drawLabelBox(lc.x + 70, lc.y - 20, `A ≈ ${formatArea(val)} (right-click to finish)`);
+        } else if (polyPts.length >= 3 && unitsPerPixel == null) {
+          const last = polyPts[polyPts.length - 1];
+          const lc = toCanvasCoords(last.x, last.y);
+          drawLabelBox(lc.x + 70, lc.y - 20, 'Please calibrate first');
+        }
+      }
+    }
+
+    // HUD
+    ctx.save();
+    ctx.font = '12px system-ui, sans-serif';
+    ctx.fillStyle = 'rgba(255,255,255,0.85)';
+    ctx.strokeStyle = 'rgba(0,0,0,0.15)';
+    const hud = `Zoom: ${(view.scale*100).toFixed(0)}%  |  Pan: Space+Drag  |  Tool: ${tool}`;
+    const w = ctx.measureText(hud).width;
+    ctx.fillRect(10, canvas.height - 28, w + 14, 20);
+    ctx.strokeRect(10, canvas.height - 28, w + 14, 20);
+    ctx.fillStyle = '#000';
+    ctx.fillText(hud, 17, canvas.height - 14);
+    ctx.restore();
+  }
+
+  // ====== Measurement creation ======
+  function finalizeDistancePolyline() {
+    if (linePts.length < 2) {
+      alert('Distance needs at least 2 points.');
+      return;
+    }
+    if (unitsPerPixel == null) {
+      alert('Please calibrate first.');
+      return;
+    }
+    const px = polylineLengthPx(linePts);
+    const value = px * unitsPerPixel;
+    const label = formatDistance(value);
+    measurements.push({
+      id: nextId++,
+      type: 'distance',
+      pts: linePts.map(p => ({x:p.x, y:p.y})),
+      px,
+      value,
+      unit,
+      label
+    });
+    linePts = [];
+    linePreview = null;
+    renderTable();
+    updateButtons();
+    redraw();
+  }
+
+  function finalizeAreaPolygon() {
+    if (polyPts.length < 3) {
+      alert('Area needs at least 3 points.');
+      return;
+    }
+    if (unitsPerPixel == null) {
+      alert('Please calibrate first.');
+      return;
+    }
+    const px2 = polygonAreaAbsPx2(polyPts);
+    const value = px2 * Math.pow(unitsPerPixel, 2);
+    const label = formatArea(value);
+    measurements.push({
+      id: nextId++,
+      type: 'area',
+      pts: polyPts.map(p => ({x:p.x, y:p.y})),
+      px2,
+      value,
+      unit,
+      label
+    });
+    polyPts = [];
+    polyPreview = null;
+    renderTable();
+    updateButtons();
+    redraw();
+  }
+
+  function performCalibration() {
+    if (calPts.length !== 2) return;
+    const px = dist(calPts[0], calPts[1]);
+    if (px < 1) {
+      alert('Calibration distance too small.');
+      calPts = [];
+      calPreview = null;
+      updateButtons();
+      redraw();
+      return;
+    }
+    const realLen = Number(realLenInput.value);
+    if (!isFinite(realLen) || realLen <= 0) {
+      alert('Please enter a real length > 0.');
+      return;
+    }
+    unitsPerPixel = realLen / px;
+    setBadge();
+    // keep calPts visible while in calibrate tool; calibration factor persists always
+    redraw();
+  }
+
+  // ====== UI table ======
+  function pointsSummary(pts) {
+    // "A(x,y), B(x,y), ..."
+    return pts.map((p, i) => `${alphabetLabel(i)}(${p.x.toFixed(1)},${p.y.toFixed(1)})`).join(', ');
+    }
+
+  function renderTable() {
+    if (measurements.length === 0) {
+      table.style.display = 'none';
+      emptyMsg.style.display = 'block';
+      tbody.innerHTML = '';
+      return;
+    }
+    emptyMsg.style.display = 'none';
+    table.style.display = 'table';
+    tbody.innerHTML = '';
+
+    for (const m of measurements) {
+      const tr = document.createElement('tr');
+
+      const td1 = document.createElement('td'); td1.textContent = String(m.id);
+      const td2 = document.createElement('td'); td2.textContent = (m.type === 'distance' ? 'Distance' : 'Area');
+      const td3 = document.createElement('td'); td3.textContent = m.label;
+
+      const td4 = document.createElement('td');
+      td4.className = 'mono';
+      td4.textContent = (m.type === 'distance')
+        ? `${m.px.toFixed(2)} px`
+        : `${m.px2.toFixed(2)} px²`;
+
+      const td5 = document.createElement('td');
+      td5.className = 'k mono';
+      td5.textContent = pointsSummary(m.pts);
+
+      tr.append(td1, td2, td3, td4, td5);
+      tbody.appendChild(tr);
+    }
+    exportBtn.disabled = measurements.length === 0;
+  }
+
+  // ====== Image Loading ======
+  async function loadImageFromFile(file) {
+    const url = URL.createObjectURL(file);
+    const image = new Image();
+    image.onload = () => {
+      img = image;
+      imgW = image.naturalWidth;
+      imgH = image.naturalHeight;
+
+      // IMPORTANT: keep calibration factor by default? -> for a new image it's safer to reset.
+      // But user did not ask. We'll reset calibration on new image to avoid accidental wrong scaling.
+      unitsPerPixel = null;
+      calPts = [];
+      calPreview = null;
+
+      // clear annotations / in-progress points
+      linePts = [];
+      linePreview = null;
+      polyPts = [];
+      polyPreview = null;
+      measurements = [];
+      nextId = 1;
+
+      fitImageToCanvas();
+      setBadge();
+      renderTable();
+      updateButtons();
+      updateCursor();
+      redraw();
+      URL.revokeObjectURL(url);
+    };
+    image.onerror = () => {
+      alert('Could not load the image.');
+      URL.revokeObjectURL(url);
+    };
+    image.src = url;
+  }
+
+  // ====== Zoom/Pan ======
+  function zoomAt(canvasX, canvasY, zoomFactor) {
+    const before = toImageCoords(canvasX, canvasY);
+    const newScale = clamp(view.scale * zoomFactor, view.minScale, view.maxScale);
+    view.scale = newScale;
+    view.offsetX = canvasX - before.x * view.scale;
+    view.offsetY = canvasY - before.y * view.scale;
+    redraw();
+  }
+
+  // ====== Events ======
+  document.querySelectorAll('input[name="tool"]').forEach(r => {
+    r.addEventListener('change', () => setTool(document.querySelector('input[name="tool"]:checked').value));
+  });
+
+  // Re-run calibration whenever real length or unit changes and 2 points are already set
+  function onRealLenChange() {
+    if (calPts.length === 2) performCalibration();
+  }
+  realLenInput.addEventListener('input', onRealLenChange);
+  realLenInput.addEventListener('change', onRealLenChange);
+
+  unitSelect.addEventListener('change', () => {
+    const oldUnit = unit;
+    const newUnit = unitSelect.value;
+
+    if (unitsPerPixel != null) {
+      unitsPerPixel = convertScalarBetweenUnits(unitsPerPixel, oldUnit, newUnit);
+    }
+
+    // convert stored measurements
+    measurements = measurements.map(m => {
+      if (m.type === 'distance') {
+        const newVal = convertScalarBetweenUnits(m.value, oldUnit, newUnit);
+        return { ...m, value: newVal, unit: newUnit, label: `${Number(newVal.toPrecision(4))} ${newUnit}` };
+      } else {
+        const newVal = convertAreaBetweenUnits(m.value, oldUnit, newUnit);
+        return { ...m, value: newVal, unit: newUnit, label: `${Number(newVal.toPrecision(4))} ${newUnit}²` };
+      }
+    });
+
+    unit = newUnit;
+    setBadge();
+    renderTable();
+    redraw();
+  });
+
+  fileInput.addEventListener('change', async (e) => {
+    const f = e.target.files && e.target.files[0];
+    if (f) await loadImageFromFile(f);
+    fileInput.value = '';
+  });
+
+  // Paste on document (works when no input is focused) AND on canvas directly
+  async function handlePaste(e) {
+    // Ignore paste events inside text inputs/textareas
+    const tag = document.activeElement && document.activeElement.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+
+    if (!e.clipboardData) return;
+    const items = Array.from(e.clipboardData.items || []);
+    const imgItem = items.find(it => it.type && it.type.startsWith('image/'));
+    if (!imgItem) return;
+
+    const file = imgItem.getAsFile();
+    if (file) {
+      e.preventDefault();
+      await loadImageFromFile(file);
+    }
+  }
+
+  document.addEventListener('paste', handlePaste);
+  canvas.addEventListener('paste', handlePaste);
+
+  // wheel zoom
+  canvas.addEventListener('wheel', (e) => {
+    if (!img) return;
+    e.preventDefault();
+    const m = getCanvasMousePos(e);
+    const delta = -e.deltaY;
+    const zoomFactor = Math.exp(delta * 0.0015);
+    zoomAt(m.x, m.y, zoomFactor);
+  }, { passive:false });
+
+  // pan start
+  canvas.addEventListener('mousedown', (e) => {
+    if (!img) return;
+    const isMiddle = (e.button === 1);
+    const canPan = isMiddle || spaceDown;
+    if (canPan) {
+      isPanning = true;
+      const m = getCanvasMousePos(e);
+      panStart = { x: m.x, y: m.y, offsetX: view.offsetX, offsetY: view.offsetY };
+      updateCursor();
+      e.preventDefault();
+    }
+  });
+
+  // move: pan + previews
+  canvas.addEventListener('mousemove', (e) => {
+    if (!img) return;
+    const m = getCanvasMousePos(e);
+
+    if (isPanning && panStart) {
+      view.offsetX = panStart.offsetX + (m.x - panStart.x);
+      view.offsetY = panStart.offsetY + (m.y - panStart.y);
+      redraw();
+      return;
+    }
+
+    // previews
+    if (tool === 'calibrate' && calPts.length === 1) {
+      let p = clampPointToImage(toImageCoords(m.x, m.y));
+      if (e.shiftKey) p = snapOrthogonal(calPts[0], p);
+      calPreview = p;
+      redraw();
+      return;
+    }
+
+    if (tool === 'distance' && linePts.length > 0) {
+      let p = clampPointToImage(toImageCoords(m.x, m.y));
+      if (e.shiftKey) p = snapOrthogonal(linePts[linePts.length - 1], p);
+      linePreview = p;
+      redraw();
+      return;
+    }
+
+    if (tool === 'area' && polyPts.length > 0) {
+      let p = clampPointToImage(toImageCoords(m.x, m.y));
+      if (e.shiftKey) p = snapOrthogonal(polyPts[polyPts.length - 1], p);
+      polyPreview = p;
+      redraw();
+      return;
+    }
+  });
+
+  // pan end
+  window.addEventListener('mouseup', () => {
+    if (isPanning) {
+      isPanning = false;
+      panStart = null;
+      updateCursor();
+    }
+  });
+
+  // left click: add points
+  canvas.addEventListener('click', (e) => {
+    if (!img) { alert('Please load an image first.'); return; }
+    if (isPanning) return;
+
+    const m = getCanvasMousePos(e);
+    let p = clampPointToImage(toImageCoords(m.x, m.y));
+
+    if (tool === 'calibrate') {
+      // If 2 points already set, ignore further clicks until user explicitly recalibrates
+      if (calPts.length >= 2) return;
+
+      if (e.shiftKey && calPts.length === 1) p = snapOrthogonal(calPts[0], p);
+      calPts.push(p);
+      calPreview = null;
+
+      if (calPts.length === 2) performCalibration();
+
+      updateButtons();
+      redraw();
+      return;
+    }
+
+    if (tool === 'distance') {
+      if (e.shiftKey && linePts.length >= 1) p = snapOrthogonal(linePts[linePts.length - 1], p);
+      linePts.push(p);
+      linePreview = null;
+      updateButtons();
+      redraw();
+      return;
+    }
+
+    if (tool === 'area') {
+      if (e.shiftKey && polyPts.length >= 1) p = snapOrthogonal(polyPts[polyPts.length - 1], p);
+      polyPts.push(p);
+      polyPreview = null;
+      updateButtons();
+      redraw();
+      return;
+    }
+  });
+
+  // right click: finish distance/area (and suppress context menu)
+  canvas.addEventListener('contextmenu', (e) => {
+    if (!img) return;
+    e.preventDefault();
+
+    if (tool === 'distance' && linePts.length >= 2) {
+      finalizeDistancePolyline();
+      return;
+    }
+    if (tool === 'area' && polyPts.length >= 3) {
+      finalizeAreaPolygon();
+      return;
+    }
+  });
+
+  // double click: also finish area
+  canvas.addEventListener('dblclick', (e) => {
+    if (tool === 'area' && polyPts.length >= 3) {
+      e.preventDefault();
+      finalizeAreaPolygon();
+    }
+  });
+
+  // keyboard
+  window.addEventListener('keydown', (e) => {
+    if (e.code === 'Space') {
+      spaceDown = true;
+      updateCursor();
+      e.preventDefault();
+    }
+    if (e.code === 'Escape') {
+      // cancel current tool points
+      if (tool === 'calibrate') { calPts = []; calPreview = null; }
+      if (tool === 'distance')  { linePts = []; linePreview = null; }
+      if (tool === 'area')      { polyPts = []; polyPreview = null; }
+      updateButtons();
+      redraw();
+    }
+    if (e.code === 'Enter') {
+      if (tool === 'distance' && linePts.length >= 2) finalizeDistancePolyline();
+      if (tool === 'area' && polyPts.length >= 3) finalizeAreaPolygon();
+    }
+  });
+
+  window.addEventListener('keyup', (e) => {
+    if (e.code === 'Space') {
+      spaceDown = false;
+      updateCursor();
+    }
+  });
+
+  // buttons
+  undoBtn.addEventListener('click', () => {
+    if (tool === 'calibrate' && calPts.length > 0) { calPts.pop(); calPreview = null; }
+    if (tool === 'distance'  && linePts.length > 0) { linePts.pop(); linePreview = null; }
+    if (tool === 'area'      && polyPts.length > 0) { polyPts.pop(); polyPreview = null; }
+    updateButtons();
+    redraw();
+  });
+
+  cancelBtn.addEventListener('click', () => {
+    if (tool === 'calibrate') { calPts = []; calPreview = null; }
+    if (tool === 'distance')  { linePts = []; linePreview = null; }
+    if (tool === 'area')      { polyPts = []; polyPreview = null; }
+    updateButtons();
+    redraw();
+  });
+
+  clearAnnoBtn.addEventListener('click', () => {
+    measurements = [];
+    nextId = 1;
+    linePts = []; linePreview = null;
+    polyPts = []; polyPreview = null;
+    renderTable();
+    updateButtons();
+    redraw();
+  });
+
+  recalBtn.addEventListener('click', () => {
+    calPts = [];
+    calPreview = null;
+    document.querySelector('input[name="tool"][value="calibrate"]').checked = true;
+    setTool('calibrate');
+  });
+
+  clearCalBtn.addEventListener('click', () => {
+    unitsPerPixel = null;
+    calPts = [];
+    calPreview = null;
+    setBadge();
+    redraw();
+  });
+
+  exportBtn.addEventListener('click', () => {
+    const data = {
+      calibration: unitsPerPixel != null ? { unitsPerPixel, unit } : null,
+      measurements: measurements.map(m => ({
+        id: m.id,
+        type: m.type,
+        result: m.label,
+        pixels: m.type === 'distance' ? m.px : m.px2,
+        unit: m.unit,
+        points: m.pts
+      }))
+    };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'measurements.json';
+    a.click();
+    URL.revokeObjectURL(url);
+  });
+
+  // Init
+  setBadge();
+  updateButtons();
+  redraw();
+  canvas.focus();
+
+})();
+</script>
+
+  <footer class="footer">
+    &copy; 2026 Daniel Meixner &nbsp;·&nbsp;
+    <a href="mailto:Daniel.Meixner@geschichte.uni-regensburg.de">Daniel.Meixner@geschichte.uni-regensburg.de</a>
+  </footer>
+
+</body>
+</html>
