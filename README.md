@@ -1,3 +1,6 @@
+**[▶ Open App](https://archaeoscan.github.io/MapRuler/MapRuler.html)**
+
+
 # MapRuler
 
 **MapRuler** is a lightweight, browser-based tool for calibrating and measuring distances and areas on historical maps, architectural plans, and other scanned documents with a known scale.
